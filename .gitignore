@@ -1,0 +1,43 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Testing and coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Environments
+.env
+.venv/
+env/
+venv/
+ENV/
+
+# Local config and runtime databases/snapshots
+config.yaml
+*.db
+*.sqlite
+*.sqlite3
+snapshots/
+
+# Datasets and runs
+datasets/
+downloads/
+footage/
+runs/
+
+# Large model weights (keep models/ directory with .gitkeep)
+models/*.pt
+models/*.onnx
+models/*.engine
+!models/.gitkeep
+
+# IDE and OS files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db

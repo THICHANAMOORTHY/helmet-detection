@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Violation Monitor</title>
+<style>
+  :root {
+    --bg:#f5f6f8; --panel:#fff; --ink:#1b1f24; --muted:#64707d; --line:#e2e6ea;
+    --helmet:#d9480f; --belt:#1971c2; --ok:#2f9e44; --warn:#e8590c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f1216; --panel:#181c22; --ink:#e7eaee; --muted:#8b96a3; --line:#2a303a;
+            --helmet:#ff8a5c; --belt:#5aa9ff; --ok:#51cf66; --warn:#ffa94d; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+         font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  header { display:flex; flex-wrap:wrap; gap:12px 24px; align-items:center; justify-content:space-between;
+           padding:14px 20px; background:var(--panel); border-bottom:1px solid var(--line); }
+  h1 { font-size:16px; margin:0; font-weight:650; }
+  h1 small { color:var(--muted); font-weight:400; margin-left:8px; }
+  .stats { display:flex; gap:18px; color:var(--muted); font-variant-numeric:tabular-nums; }
+  .stats b { color:var(--ink); font-weight:600; }
+  .badge { display:inline-block; padding:1px 7px; border-radius:99px; font-size:11px; font-weight:600;
+           background:color-mix(in srgb,var(--warn) 18%,transparent); color:var(--warn); }
+  nav { display:flex; gap:4px; padding:10px 20px 0; }
+  nav button { border:0; background:none; color:var(--muted); font:inherit; font-weight:550;
+               padding:8px 14px; border-bottom:2px solid transparent; cursor:pointer; }
+  nav button[aria-selected=true] { color:var(--ink); border-color:var(--ink); }
+  main { padding:16px 20px 40px; max-width:1200px; margin:0 auto; }
+  section { display:none; } section.on { display:block; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px; }
+  .live { display:grid; grid-template-columns:minmax(0,2fr) minmax(260px,1fr); gap:16px; }
+  @media (max-width:820px) { .live { grid-template-columns:1fr; } }
+  .live img.feed { width:100%; display:block; border-radius:6px; background:#000; aspect-ratio:4/3; object-fit:contain; }
+  h2 { font-size:13px; margin:0 0 10px; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
+  table { width:100%; border-collapse:collapse; }
+  th,td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:middle; }
+  th { color:var(--muted); font-weight:600; font-size:12px; }
+  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .wrap { overflow-x:auto; }
+  .thumb { width:64px; height:48px; object-fit:cover; border-radius:4px; background:#000; display:block; }
+  .tag { font-weight:600; } .tag.no-helmet { color:var(--helmet); } .tag.no-seatbelt { color:var(--belt); }
+  .mini { display:grid; grid-template-columns:56px 1fr; gap:10px; padding:8px 0; border-bottom:1px solid var(--line); }
+  .mini:last-child { border:0; }
+  .empty { color:var(--muted); padding:18px 4px; }
+  .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:16px; }
+  .kpi b { display:block; font-size:26px; font-variant-numeric:tabular-nums; }
+  .kpi span { color:var(--muted); font-size:12px; }
+  .legend { display:flex; gap:16px; margin:0 0 8px; color:var(--muted); font-size:12px; }
+  .legend i { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:6px; }
+  svg text { fill:var(--muted); font-size:11px; }
+  #toast { position:fixed; right:16px; bottom:16px; background:var(--ink); color:var(--bg); padding:10px 14px;
+           border-radius:8px; opacity:0; transform:translateY(8px); transition:.25s; pointer-events:none; }
+  #toast.show { opacity:1; transform:none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Helmet &amp; Seatbelt Violation Monitor <small id="where"></small></h1>
+  <div class="stats">
+    <span>FPS <b id="m-fps">–</b></span>
+    <span>Inference <b id="m-inf">–</b> ms</span>
+    <span>Latency <b id="m-lat">–</b> ms</span>
+    <span id="m-sim"></span>
+  </div>
+</header>
+<nav role="tablist">
+  <button role="tab" data-tab="live" aria-selected="true">Live</button>
+  <button role="tab" data-tab="log" aria-selected="false">Violations</button>
+  <button role="tab" data-tab="analytics" aria-selected="false">Analytics</button>
+  <button role="tab" data-tab="challans" aria-selected="false">E-Challan</button>
+</nav>
+<main>
+  <section id="live" class="on">
+    <div class="live">
+      <div class="card"><h2>Camera</h2><img class="feed" src="/video" alt="Live annotated camera feed"></div>
+      <div class="card"><h2>Latest violations</h2><div id="latest"></div></div>
+    </div>
+  </section>
+  <section id="log"><div class="card wrap"><table>
+    <thead><tr><th>Snapshot</th><th>Time</th><th>Type</th><th class="num">Conf.</th><th>Plate</th><th>Location</th></tr></thead>
+    <tbody id="log-body"></tbody></table><div id="log-empty" class="empty" hidden>No violations recorded yet.</div></div></section>
+  <section id="analytics">
+    <div class="kpis">
+      <div class="card kpi"><b id="k-total">0</b><span>violations, last 24 h</span></div>
+      <div class="card kpi"><b id="k-helmet">0</b><span>no-helmet</span></div>
+      <div class="card kpi"><b id="k-belt">0</b><span>no-seatbelt</span></div>
+      <div class="card kpi"><b id="k-fines">₹0</b><span>total mock fines</span></div>
+    </div>
+    <div class="card"><h2>Violations by hour</h2>
+      <div class="legend"><span><i style="background:var(--helmet)"></i>no-helmet</span><span><i style="background:var(--belt)"></i>no-seatbelt</span></div>
+      <div id="chart"></div></div>
+  </section>
+  <section id="challans"><div class="card wrap"><table>
+    <thead><tr><th>Challan</th><th>Plate</th><th>Violation</th><th>Time</th><th class="num">Fine</th><th>Status</th></tr></thead>
+    <tbody id="ch-body"></tbody></table><div id="ch-empty" class="empty" hidden>No challans yet.</div>
+    <p class="empty">Proof of concept: challans are mock records; no government system is contacted.</p></div></section>
+</main>
+<div id="toast" role="status"></div>
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = ts => new Date(ts).toLocaleString([], {dateStyle:'medium', timeStyle:'medium'});
+const tagOf = t => `<span class="tag ${esc(t)}">${esc(t)}</span>`;
+const sim = v => v.simulated ? ' <span class="badge">simulated</span>' : '';
+const plateOf = v => v.plate ? esc(v.plate) : '<span style="color:var(--muted)">unread</span>';
+
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('nav button').forEach(x => x.setAttribute('aria-selected', x === b));
+  document.querySelectorAll('section').forEach(s => s.classList.toggle('on', s.id === b.dataset.tab));
+  if (b.dataset.tab === 'analytics') loadStats();
+});
+
+async function j(u) { const r = await fetch(u); if (!r.ok) throw new Error(r.status); return r.json(); }
+
+async function loadLog() {
+  const rows = await j('/api/violations?limit=200');
+  $('#log-empty').hidden = rows.length > 0;
+  $('#log-body').innerHTML = rows.map(v => `<tr>
+    <td><a href="/snapshots/${esc(v.full_image)}" target="_blank" rel="noopener"><img class="thumb" src="/snapshots/${esc(v.image)}" alt="Violation snapshot"></a></td>
+    <td>${fmt(v.ts)}</td><td>${tagOf(v.type)}${sim(v)}</td><td class="num">${(v.confidence*100).toFixed(0)}%</td>
+    <td>${plateOf(v)}</td><td>${esc(v.location)}</td></tr>`).join('');
+  $('#latest').innerHTML = rows.slice(0, 6).map(v => `<div class="mini">
+    <img class="thumb" src="/snapshots/${esc(v.image)}" alt=""><div>${tagOf(v.type)}${sim(v)}<br>
+    <span style="color:var(--muted)">${fmt(v.ts)} · ${plateOf(v)}</span></div></div>`).join('')
+    || '<div class="empty">Waiting for violations…</div>';
+}
+
+async function loadChallans() {
+  const rows = await j('/api/challans?limit=200');
+  $('#ch-empty').hidden = rows.length > 0;
+  $('#ch-body').innerHTML = rows.map(c => `<tr><td>${esc(c.id)}</td><td>${esc(c.plate)}</td><td>${tagOf(c.type)}</td>
+    <td>${fmt(c.ts)}</td><td class="num">₹${Number(c.fine).toLocaleString('en-IN')}</td><td>${esc(c.status)}</td></tr>`).join('');
+}
+
+async function loadStats() {
+  const s = await j('/api/stats?hours=24');
+  $('#k-total').textContent = s.total;
+  $('#k-helmet').textContent = s.by_type['no-helmet'] || 0;
+  $('#k-belt').textContent = s.by_type['no-seatbelt'] || 0;
+  $('#k-fines').textContent = '₹' + Number(s.challan_total).toLocaleString('en-IN');
+  drawChart(s.by_hour);
+}
+
+function drawChart(data) {
+  const host = $('#chart');
+  if (!data.length) { host.innerHTML = '<div class="empty">No data in the last 24 hours.</div>'; return; }
+  const W = 900, H = 260, L = 34, B = 26, T = 8, n = data.length;
+  const max = Math.max(1, ...data.map(d => (d['no-helmet']||0) + (d['no-seatbelt']||0)));
+  const bw = Math.min(56, (W - L) / n * 0.7), step = (W - L) / n, y = v => T + (H - T - B) * (1 - v / max);
+  let g = '';
+  for (let i = 0; i <= 4; i++) { const v = Math.round(max * i / 4), yy = y(v);
+    g += `<line x1="${L}" x2="${W}" y1="${yy}" y2="${yy}" stroke="var(--line)"/><text x="${L-6}" y="${yy+4}" text-anchor="end">${v}</text>`; }
+  data.forEach((d, i) => {
+    const x = L + step * i + (step - bw) / 2, h1 = d['no-helmet']||0, b1 = d['no-seatbelt']||0;
+    const label = new Date(d.hour + ':00:00Z').toLocaleTimeString([], {hour:'2-digit'});
+    g += `<rect x="${x}" y="${y(h1)}" width="${bw}" height="${(H-T-B)*h1/max}" fill="var(--helmet)"><title>${label}: ${h1} no-helmet</title></rect>`;
+    g += `<rect x="${x}" y="${y(h1+b1)}" width="${bw}" height="${(H-T-B)*b1/max}" fill="var(--belt)"><title>${label}: ${b1} no-seatbelt</title></rect>`;
+    g += `<text x="${x+bw/2}" y="${H-8}" text-anchor="middle">${label}</text>`;
+  });
+  host.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Violations per hour, stacked by type">${g}</svg>`;
+}
+
+async function loadMetrics() {
+  try {
+    const m = await j('/api/metrics');
+    $('#m-fps').textContent = m.fps.toFixed(1); $('#m-inf').textContent = m.infer_ms.toFixed(0);
+    $('#m-lat').textContent = m.latency_ms.toFixed(0);
+    $('#m-sim').innerHTML = m.simulated ? '<span class="badge">simulated camera</span>' : '';
+  } catch {}
+}
+
+let toastTimer;
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 3500); }
+
+function refreshAll() { loadLog().catch(()=>{}); loadChallans().catch(()=>{}); loadStats().catch(()=>{}); }
+j('/api/info').then(i => $('#where').textContent = `${i.device_id} · ${i.location}`).catch(()=>{});
+refreshAll(); loadMetrics();
+setInterval(loadMetrics, 2000);
+setInterval(refreshAll, 15000);  // safety net if the event stream drops
+const es = new EventSource('/api/events');
+es.onmessage = e => { const ev = JSON.parse(e.data); if (ev.event === 'violation') { toast('New violation recorded'); refreshAll(); } };
+</script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+ultralytics>=8.3
+opencv-python>=4.9
+numpy
+flask>=3.0
+paho-mqtt>=2.0
+pyyaml
+onnxruntime          # runs the exported .onnx model (CPU); use onnxruntime-gpu for CUDA
+pytest
+
+# optional
+# easyocr            # number-plate OCR (E-Challan); pulls opencv-python-headless
+# firebase-admin     # mirror violations to Firestore + Storage

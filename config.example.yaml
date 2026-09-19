@@ -1,0 +1,25 @@
+# Copy to config.yaml and run:  python -m vsd --config config.yaml
+device_id: cam01
+location: "Junction A"
+source: "http://192.168.1.50:81/stream"   # ESP32-CAM; 0 = webcam; or path to a video file
+
+model:
+  weights: models/helmet_seatbelt.onnx
+  conf: 0.5
+  class_conf: {no-helmet: 0.5, no-seatbelt: 0.5}   # tune per class
+
+rules:
+  min_consecutive: 3
+  # cabin_roi: [0.2, 0.3, 0.8, 0.9]   # only count no-seatbelt inside this region (fractions of the frame)
+
+mqtt:
+  host: localhost          # Mosquitto, or e.g. xxxx.s1.eu.hivemq.cloud (add username/password, port 8883 needs TLS setup)
+  port: 1883
+
+fines: {no-helmet: 1000, no-seatbelt: 1000}   # mock values, INR
+
+storage:
+  firebase:
+    enabled: false
+    credentials: firebase-service-account.json
+    storage_bucket: your-project.appspot.com
