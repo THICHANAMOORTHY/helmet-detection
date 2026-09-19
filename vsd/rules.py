@@ -47,6 +47,7 @@ class RuleEngine:
         self.match_iou = float(cfg["match_iou"])
         self.cooldown_s = float(cfg["cooldown_s"])
         self.cabin_roi = cfg.get("cabin_roi")
+        self.require_rider = bool(cfg.get("require_rider", True))
         self._tracks: list[_Track] = []
         self._next_id = 1
 
@@ -62,18 +63,27 @@ class RuleEngine:
     def _helmet_candidates(self, dets: list[Detection]) -> list[Candidate]:
         riders = [d for d in dets if d.cls == "rider"]
         helmets = [d for d in dets if d.cls == "helmet"]
+        candidates = []
         bare: dict[int, list[Detection]] = {}
         for nh in (d for d in dets if d.cls == "no-helmet"):
             if any(h.conf >= nh.conf and iou(h.box, nh.box) >= self.head_iou for h in helmets):
                 continue  # the model also sees a helmet on this head, and is surer of it
+
+            if not self.require_rider:
+                candidates.append(Candidate("no-helmet", nh.box, nh.conf))
+                continue
+
             # a bare head belongs to the rider box that contains most of it
             best = max(range(len(riders)), key=lambda i: ioa(nh.box, riders[i].box), default=None)
             if best is not None and ioa(nh.box, riders[best].box) >= self.overlap:
                 bare.setdefault(best, []).append(nh)
-        return [
-            Candidate("no-helmet", riders[i].box, max(h.conf for h in heads))
-            for i, heads in bare.items()
-        ]
+
+        if self.require_rider:
+            candidates = [
+                Candidate("no-helmet", riders[i].box, max(h.conf for h in heads))
+                for i, heads in bare.items()
+            ]
+        return candidates
 
     def _seatbelt_candidates(self, dets: list[Detection], shape: tuple[int, ...]) -> list[Candidate]:
         h, w = shape[:2]

@@ -10,6 +10,7 @@ model:
 
 rules:
   min_consecutive: 3
+  # require_rider: false              # set false for standalone helmet detection without rider boxes
   # cabin_roi: [0.2, 0.3, 0.8, 0.9]   # only count no-seatbelt inside this region (fractions of the frame)
 
 mqtt:

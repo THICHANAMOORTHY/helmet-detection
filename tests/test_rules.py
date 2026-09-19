@@ -94,3 +94,14 @@ def test_seatbelt_present_suppresses_violation():
 
 def test_disabled_rule_type_never_fires():
     assert feed(engine(enabled=["no-seatbelt"]), [bare_head()] * 5) == []
+
+
+def test_standalone_helmet_detection_without_rider():
+    # When require_rider is False, standalone no-helmet box triggers violation directly
+    standalone_head = [Detection("no-helmet", 0.85, (200, 150, 260, 210))]
+    eng = engine(require_rider=False)
+    fired = feed(eng, [standalone_head] * 3)
+    assert len(fired) == 1
+    assert fired[0].type == "no-helmet"
+    assert fired[0].box == (200, 150, 260, 210)
+

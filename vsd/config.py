@@ -27,6 +27,7 @@ DEFAULTS: dict = {
         "match_iou": 0.25,  # IoU used to follow one violation from frame to frame
         "cooldown_s": 10.0,  # a fired violation is not re-fired until it has been gone this long
         "cabin_roi": None,  # [x1, y1, x2, y2] normalised 0-1; None = whole frame
+        "require_rider": True,  # if false, bare heads directly trigger violations without needing a rider box
     },
     "mqtt": {
         "enabled": True,

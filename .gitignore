@@ -29,6 +29,8 @@ footage/
 runs/
 
 # Large model weights (keep models/ directory with .gitkeep)
+*.pt
+weights/
 models/*.pt
 models/*.onnx
 models/*.engine
