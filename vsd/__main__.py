@@ -34,6 +34,7 @@ def main() -> None:
     if a.no_plate: over.setdefault("plate", {})["enabled"] = False
     if a.no_dashboard: over.setdefault("dashboard", {})["enabled"] = False
     if a.port: over.setdefault("dashboard", {})["port"] = a.port
+    if a.loop: over["loop"] = True
     cfg = load_config(a.config, over)
 
     # heavy imports after argument parsing so --help stays instant
@@ -56,7 +57,7 @@ def main() -> None:
         from .sources import open_source
 
         detector = YoloDetector(cfg["model"])
-        source = open_source(cfg["source"], loop=a.loop)
+        source = open_source(cfg["source"], loop=bool(cfg.get("loop", a.loop)))
 
     publisher = MqttPublisher(cfg["mqtt"], cfg["device_id"]) if cfg["mqtt"]["enabled"] else None
     pipe = Pipeline(cfg, source, detector, store, plate_reader=load_plate_reader(cfg["plate"]),

@@ -34,7 +34,12 @@ class LiveSource:
     def _run(self) -> None:
         last = None
         while not self._stop.is_set():
-            cap = cv2.VideoCapture(self.spec)
+            if isinstance(self.spec, int):
+                cap = cv2.VideoCapture(self.spec, cv2.CAP_DSHOW)
+                if not cap.isOpened():
+                    cap = cv2.VideoCapture(self.spec)
+            else:
+                cap = cv2.VideoCapture(self.spec)
             if not cap.isOpened():
                 log.warning("Cannot open %s, retrying in %.0fs", self.spec, self.reconnect_s)
                 self._stop.wait(self.reconnect_s)
@@ -70,9 +75,10 @@ class FileSource:
     """Recorded video. Paced to the file's own FPS so demos play at natural speed."""
 
     def __init__(self, path: str, realtime: bool = True, loop: bool = False):
-        self.cap = cv2.VideoCapture(path)
+        self.path = str(path)
+        self.cap = cv2.VideoCapture(self.path)
         if not self.cap.isOpened():
-            raise FileNotFoundError(f"Cannot open video: {path}")
+            raise FileNotFoundError(f"Cannot open video: {self.path}")
         fps = self.cap.get(cv2.CAP_PROP_FPS) or 25.0
         self.interval = 1.0 / fps if realtime else 0.0
         self.loop = loop
@@ -85,6 +91,10 @@ class FileSource:
         if not ok and self.loop:
             self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
             ok, frame = self.cap.read()
+            if not ok:
+                self.cap.release()
+                self.cap = cv2.VideoCapture(self.path)
+                ok, frame = self.cap.read()
         if not ok:
             self.ended = True
             return None
